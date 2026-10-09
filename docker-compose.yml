@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: assetpulse
+      POSTGRES_USER: assetpulse
+      POSTGRES_PASSWORD: assetpulse_dev_only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U assetpulse"]
+      interval: 5s
+      retries: 10
+  mqtt:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://assetpulse:assetpulse_dev_only@postgres:5432/assetpulse
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - '8000:8000'
+  worker:
+    build: ./backend
+    command: python -m app.mqtt_worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://assetpulse:assetpulse_dev_only@postgres:5432/assetpulse
+      MQTT_HOST: mqtt
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mqtt:
+        condition: service_started
+  simulator:
+    build: ./simulator
+    environment:
+      MQTT_HOST: mqtt
+    depends_on:
+      - mqtt
+  frontend:
+    build: ./frontend
+    ports:
+      - '5173:5173'
+    depends_on:
+      - api
+volumes:
+  pgdata:
