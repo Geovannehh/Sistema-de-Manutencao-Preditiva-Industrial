@@ -1,0 +1,1 @@
+# Sistema-de-Manuten-o-Preditiva-Industrial
